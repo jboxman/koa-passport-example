@@ -1,10 +1,27 @@
 const passport = require('koa-passport')
 
-const fetchUser = (() => {
-  // This is an example! Use password hashing in your
-  const user = { id: 1, username: 'test', password: 'test' }
-  return async function() {
-    return user
+const userStore = (function() {
+  const state = {}
+
+  function fetchUser(id) {
+    return new Promise((fulfill, reject) => {
+      if(state[id]) {
+        return fulfill(state[id])
+      }
+      else {
+        return fulfill({id})
+      }
+      //reject(new Error('Not found'))
+    })
+  }
+
+  function saveUser(user) {
+    state[user.id] = Object.assign({}, user)
+  }
+
+  return {
+    fetchUser,
+    saveUser
   }
 })()
 
@@ -14,7 +31,7 @@ passport.serializeUser(function(user, done) {
 
 passport.deserializeUser(async function(id, done) {
   try {
-    const user = await fetchUser()
+    const user = await userStore.fetchUser(id)
     done(null, user)
   } catch(err) {
     done(err)
@@ -34,38 +51,14 @@ passport.use(new LocalStrategy(function(username, password, done) {
     .catch(err => done(err))
 }))
 
-const FacebookStrategy = require('passport-facebook').Strategy
-passport.use(new FacebookStrategy({
-    clientID: 'your-client-id',
-    clientSecret: 'your-secret',
-    callbackURL: 'http://localhost:' + (process.env.PORT || 3000) + '/auth/facebook/callback'
+const GitHubStrategy = require('passport-github2').Strategy
+passport.use(new GitHubStrategy({
+    clientID: process.env.CLIENT_ID,
+    clientSecret: process.env.CLIENT_SECRET,
+    callbackURL: process.env.CALLBACK_URL
   },
-  function(token, tokenSecret, profile, done) {
-    // retrieve user ...
-    fetchUser().then(user => done(null, user))
-  }
-))
-
-const TwitterStrategy = require('passport-twitter').Strategy
-passport.use(new TwitterStrategy({
-    consumerKey: 'your-consumer-key',
-    consumerSecret: 'your-secret',
-    callbackURL: 'http://localhost:' + (process.env.PORT || 3000) + '/auth/twitter/callback'
-  },
-  function(token, tokenSecret, profile, done) {
-    // retrieve user ...
-    fetchUser().then(user => done(null, user))
-  }
-))
-
-const GoogleStrategy = require('passport-google-auth').Strategy
-passport.use(new GoogleStrategy({
-    clientId: 'your-client-id',
-    clientSecret: 'your-secret',
-    callbackURL: 'http://localhost:' + (process.env.PORT || 3000) + '/auth/google/callback'
-  },
-  function(token, tokenSecret, profile, done) {
-    // retrieve user ...
-    fetchUser().then(user => done(null, user))
+  function(accessToken, refreshToken, profile, done) {
+    userStore.saveUser(profile)
+    done(null, profile)
   }
 ))

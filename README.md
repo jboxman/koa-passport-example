@@ -1,5 +1,7 @@
 # koa-passport-example
 
+Repurposed to demonstrate passport-github2 usage with Koa.
+
 Example for [koa-passport](https://github.com/rkusa/koa-passport)
 
 koa-passport version  | koa version | branch

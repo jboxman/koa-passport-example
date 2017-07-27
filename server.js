@@ -1,6 +1,8 @@
 const Koa = require('koa')
 const app = new Koa()
 
+require('dotenv').config()
+
 // trust proxy
 app.proxy = true
 
@@ -23,21 +25,16 @@ app.use(passport.session())
 const fs    = require('fs')
 const route = require('koa-route')
 
+const views = require('koa-views')
+app.use(views(`${__dirname}/views`, {
+  map: {
+    html: 'ejs'
+  }
+}))
+
 app.use(route.get('/', function(ctx) {
   ctx.type = 'html'
   ctx.body = fs.createReadStream('views/login.html')
-}))
-
-app.use(route.post('/custom', function(ctx) {
-  return passport.authenticate('local', function(err, user, info, status) {
-    if (user === false) {
-      ctx.body = { success: false }
-      ctx.throw(401)
-    } else {
-      ctx.body = { success: true }
-      return ctx.login(user)
-    }
-  })(ctx)
 }))
 
 // POST /login
@@ -53,38 +50,36 @@ app.use(route.get('/logout', function(ctx) {
   ctx.redirect('/')
 }))
 
-app.use(route.get('/auth/facebook',
-  passport.authenticate('facebook')
+/*
+  Upon success:
+  ctx.state.user:       User object from passport.deserializeUser()
+  ctx.session:          Session object
+  ctx.session.passport: ID from passport.seralizeUser()
+*/
+
+app.use(route.get('/auth/github',
+  passport.authenticate('github')
 ))
 
-app.use(route.get('/auth/facebook/callback',
-  passport.authenticate('facebook', {
+// Custom handler that returns the authenticated user object
+app.use(route.get('/auth/github/callback', function(ctx) {
+  return passport.authenticate('github', async function(err, user, info) {
+    //ctx.type = 'json'
+    //ctx.body = user
+    await ctx.logIn(user)
+    await ctx.render('success', {user: JSON.stringify(ctx.state.user)})
+  })(ctx)
+}))
+
+/*
+// Classic redirect behavior
+app.use(route.get('/auth/github/callback',
+  passport.authenticate('github', {
     successRedirect: '/app',
     failureRedirect: '/'
   })
 ))
-
-app.use(route.get('/auth/twitter',
-  passport.authenticate('twitter')
-))
-
-app.use(route.get('/auth/twitter/callback',
-  passport.authenticate('twitter', {
-    successRedirect: '/app',
-    failureRedirect: '/'
-  })
-))
-
-app.use(route.get('/auth/google',
-  passport.authenticate('google')
-))
-
-app.use(route.get('/auth/google/callback',
-  passport.authenticate('google', {
-    successRedirect: '/app',
-    failureRedirect: '/'
-  })
-))
+*/
 
 // Require authentication for now
 app.use(function(ctx, next) {
